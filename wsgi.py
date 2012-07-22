@@ -19,16 +19,22 @@ def cached_possibles(letters, slots, cache_key_computer,
     """
     checks cache for possible solution from cache
     """
-    key = context(cache_key_computer, letters, slots)
-    return context(cache_getter, key)
+    try:
+        key = context(cache_key_computer, letters, slots)
+        return context(cache_getter, key)
+    except Exception:
+        return None
 
 def cache_possibles(letters, slots, possibles,
                     cache_key_computer, cache_setter, context):
     """
     update's cache with solution
     """
-    key = context(cache_key_computer, letters, slots)
-    return context(cache_setter, key, possibles)
+    try:
+        key = context(cache_key_computer, letters, slots)
+        return context(cache_setter, key, possibles)
+    except Exception:
+        return None
 
 def compute_possibles(letters, slots, dictionary_words, context):
     """
