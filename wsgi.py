@@ -111,8 +111,6 @@ def application(environ, start_response):
     # path = .../letters/slots/ or .../letters/
     path = environ.get('PATH_INFO')
     path_pieces = [x.strip() for x in path.split('/') if x.strip()]
-    print 'path: %s' % path
-    print 'path_pieces: %s' % path_pieces
     if path_pieces[-1].isdigit():
         slots = int(path_pieces[-1])
         letters = path_pieces[-2]
@@ -120,8 +118,10 @@ def application(environ, start_response):
         slots = None
         letters = path_pieces[-1]
 
-    print 'letters: %s' % letters
-    print 'slots: %s' % slots
+    # if there is a '.' in the letters it's not to
+    # be trusted
+    if '.' in letters:
+        return []
 
     # setup redis client
     rc = redis.StrictRedis()
