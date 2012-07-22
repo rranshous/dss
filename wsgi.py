@@ -11,6 +11,10 @@ import bubble as bubble
 import keys
 from dictionaries import dictionaries
 
+import redis
+from itertools import ifilter
+
+
 def cached_possibles(letters, slots, cache_key_computer,
                      cache_getter, context):
     """
@@ -81,10 +85,10 @@ def context_application(environ, start_response,
     possibles = context(get_possibles)
 
     # update our context to include the possibilities
-    context.update(possibilities=possibilities)
+    context.update(possibles=possibles)
 
     # package up our possible words for returning to client
-    response_package = context(package_response)
+    response_package = context(package_response, possibles)
 
     # deliver up our response package
     return response_package
@@ -95,12 +99,14 @@ def application(environ, start_response):
     """
 
     # let the client know we're good to go, and sending json
-    start_response('200 OK', {'Content-Type':'javascript/json'})
+    start_response('200 OK', [('Content-Type', 'application/json')])
 
     # break from our path the letters and # of pieces
     # path = .../letters/slots/ or .../letters/
-    path = environ.get('REQUEST-PATH')
-    path_pieces = path.split('/')
+    path = environ.get('PATH_INFO')
+    path_pieces = [x.strip() for x in path.split('/') if x.strip()]
+    print 'path: %s' % path
+    print 'path_pieces: %s' % path_pieces
     if path_pieces[-1].isdigit():
         slots = int(path_pieces[-1])
         letters = path_pieces[-2]
@@ -108,22 +114,28 @@ def application(environ, start_response):
         slots = None
         letters = path_pieces[-1]
 
+    print 'letters: %s' % letters
+    print 'slots: %s' % slots
+
+    # setup redis client
+    rc = redis.StrictRedis()
+
     # create a context for our callables
     context = bubble.build_context({
         'cached_possibles': cached_possibles,
-        'compute_possibles': computer_possibles,
+        'compute_possibles': compute_possibles,
         'get_possibles': get_possibles,
-        'package': p.json_dump,
+        'package_response': p.json_dump,
         'dictionary_words': dictionaries,
         'cache_key_computer': keys.letters,
         'cache_getter': rc.smembers,
         'cache_setter': rc.sadd,
         'letters': letters,
-        'slots': slots
+        'slots': slots,
     })
 
     # wrap our application in our context
-    wrapped_application = context.create_partial(application)
+    wrapped_application = context.create_partial(context_application)
 
     return wrapped_application(environ, start_response)
 

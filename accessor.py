@@ -102,8 +102,6 @@ class AccessorDef(object):
     def __init__(self, path=''):
         self.path = path
     def transform(self, o):
-        print 'transforming: %s %s' % (
-                o, self.path)
         for p in self.path.split('.'):
             try:
                 # try a get method first
@@ -135,7 +133,6 @@ class Accessor(object):
         # can transform
         for compare_arg, compare_value in arg_lookup.iteritems():
             accessor_def = getattr(self, compare_arg, None)
-            print 'accessor_def:',accessor_def
             if accessor_def:
                 try:
                     r = accessor_def.transform(compare_value)
@@ -143,7 +140,6 @@ class Accessor(object):
                     # TODO: decide if i like proxy
                     return r
                 except Exception, ex:
-                    print 'accessor ex:',str(ex)
                     pass # not an accessor def or cant transform
 
         raise Exception('Could not derive')

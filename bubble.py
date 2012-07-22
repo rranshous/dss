@@ -7,18 +7,31 @@ class DirectAccessor(object):
     def __init__(self, key, value):
         self.key = self.name = key
         self.value = value
-    def transform(self, arg):
+    def derive(self, arg, **lookup):
+        """ just return our value """
         return self.value
+    def __repr__(self):
+        return '<DirectAccessor "%s">' % self.key
 DA = DirectAccessor
 
 class Context(object):
 
     def __init__(self, mapping={}):
         self.mapping = mapping
-        self.accessor_map = self.build_accessor_map(mapping)
+        self.accessor_map = {}
+        # update our mapping to include this context
+        # will also set resulting access map against self
+        self.update(context=self)
+
+    def update(self, **kwargs):
+        """
+        add to our mapping / update our accessor map
+        """
+        self.mapping.update(kwargs)
+        self.accessor_map = self.build_accessor_map(self.mapping)
 
     @staticmethod
-    def build_accessor_map(self, mapping):
+    def build_accessor_map(mapping):
         """
         given a mapping of k/v to use in the accessor
         map create an accessor map for dep fills
@@ -46,14 +59,14 @@ class Context(object):
 
             # get the args and kwargs we are going to pass
             # to our resulting
-            f_args, f_kwargs = fill_deps(fn, self.accessor_map,
+            f_args, f_kwargs = fill_deps(self.accessor_map, fn,
                                          *cp_args, **cp_kwargs)
 
             # call the function we're wrapping with the derived args
             return fn( *f_args, **f_kwargs )
 
         # return our wrapper
-        return resulting_callback
+        return resulting_callable
 
     def __call__(self, fn, *args, **kwargs):
         """

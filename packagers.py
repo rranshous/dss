@@ -1,4 +1,4 @@
-
+import json
 
 def is_iterator(i):
     """
@@ -14,6 +14,10 @@ def json_dump(to_package):
 
     returns - json string
     """
-    if is_iterator(to_package):
-        return iter_json_dumps(to_package)
-    return json.dumps(to_package)
+    try:
+        to_package = iter(to_package)
+        to_package = [p for p in to_package]
+    except TypeError:
+        pass
+    package = json.dumps(to_package)
+    return package

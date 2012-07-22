@@ -12,7 +12,5 @@ def iter_linux_words():
             if word != last:
                 yield word
             last = word
-        words = _words
-
 
 dictionaries = iter_linux_words()
