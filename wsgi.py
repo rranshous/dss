@@ -12,8 +12,7 @@ import keys
 from dictionaries import dictionaries
 
 import redis
-from itertools import ifilter
-
+from itertools import ifilter, tee
 
 def cached_possibles(letters, slots, cache_key_computer,
                      cache_getter, context):
@@ -23,13 +22,13 @@ def cached_possibles(letters, slots, cache_key_computer,
     key = context(cache_key_computer, letters, slots)
     return context(cache_getter, key)
 
-def cache_possibility(letters, slots, possibilities,
-                      cache_key_computer, cache_setter, context):
+def cache_possibles(letters, slots, possibles,
+                    cache_key_computer, cache_setter, context):
     """
     update's cache with solution
     """
     key = context(cache_key_computer, letters, slots)
-    return context(cache_setter, key)
+    return context(cache_setter, key, possibles)
 
 def compute_possibles(letters, slots, dictionary_words, context):
     """
@@ -75,6 +74,16 @@ def get_possibles(letters, slots, compute_possibles,
 
     # cache miss, we'll have to compute it ourself
     possibles = context(compute_possibles)
+
+    # copy our iterable so that we can cache it
+    # PROBLEM with using iterators, they can only be read once
+    # if we read the iterator to create a cache than we can't
+    # return it as our wsgi response b/c it will be empty
+    possibles, possibles_to_cache = tee(possibles)
+
+    # update our cache
+    context(cache_possibles, possibles=possibles_to_cache)
+
     return possibles
 
 def context_application(environ, start_response,
@@ -83,9 +92,6 @@ def context_application(environ, start_response,
 
     # get our iterator of possible words
     possibles = context(get_possibles)
-
-    # update our context to include the possibilities
-    context.update(possibles=possibles)
 
     # package up our possible words for returning to client
     response_package = context(package_response, possibles)
@@ -120,6 +126,14 @@ def application(environ, start_response):
     # setup redis client
     rc = redis.StrictRedis()
 
+    # function for caching results
+    def cache_setter(key, values):
+        # can't pass an iterator to redis sadd
+        pipe = rc.pipeline()
+        for v in values:
+            pipe.sadd(key, v)
+        pipe.execute()
+
     # create a context for our callables
     context = bubble.build_context({
         'cached_possibles': cached_possibles,
@@ -129,7 +143,7 @@ def application(environ, start_response):
         'dictionary_words': dictionaries,
         'cache_key_computer': keys.letters,
         'cache_getter': rc.smembers,
-        'cache_setter': rc.sadd,
+        'cache_setter':cache_setter,
         'letters': letters,
         'slots': slots,
     })
